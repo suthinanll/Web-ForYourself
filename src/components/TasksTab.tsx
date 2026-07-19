@@ -11,7 +11,6 @@ import {
   ListTodo, 
   Eye, 
   EyeOff, 
-  Loader2, 
   Target
 } from 'lucide-react'
 import {
@@ -40,7 +39,7 @@ export default function TasksTab({ userId }: TasksTabProps) {
   const [quickInput, setQuickInput] = useState('')
   const [hideCompleted, setHideCompleted] = useState(false)
 
-  // Drag state
+  // Drag & Touch state
   const dragItem = useRef<string | null>(null)
   const dragOverItem = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -218,6 +217,33 @@ export default function TasksTab({ userId }: TasksTabProps) {
     }
   }
 
+  // ── Touch Events For Mobile ──
+  const handleTouchStart = (e: React.TouchEvent, id: string, isCompleted: boolean) => {
+    if (isCompleted) return
+    dragItem.current = id
+    setDraggingId(id)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!draggingId) return
+
+    const touch = e.touches[0]
+    const element = document.elementFromPoint(touch.clientX, touch.clientY)
+    const closestItem = element?.closest('[data-todo-id]')
+
+    if (closestItem) {
+      const overId = closestItem.getAttribute('data-todo-id')
+      if (overId && overId !== dragItem.current) {
+        dragOverItem.current = overId
+        setDragOverId(overId)
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    handleDragEnd()
+  }
+
   const completedCount = todos.filter(t => t.is_completed).length
   const totalCount = todos.length
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
@@ -303,11 +329,15 @@ export default function TasksTab({ userId }: TasksTabProps) {
             {displayTodos.map(todo => (
               <div
                 key={todo.id}
+                data-todo-id={todo.id}
                 draggable={!todo.is_completed}
                 onDragStart={() => handleDragStart(todo.id)}
                 onDragEnter={() => handleDragEnter(todo.id)}
                 onDragEnd={handleDragEnd}
                 onDragOver={e => e.preventDefault()}
+                onTouchStart={(e) => handleTouchStart(e, todo.id, todo.is_completed)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
                 className={`group flex items-center justify-between p-3.5 lg:p-4.5 transition-colors select-none ${
                   todo.id === draggingId
                     ? 'bg-slate-50 dark:bg-slate-800/60 opacity-60'
@@ -319,9 +349,9 @@ export default function TasksTab({ userId }: TasksTabProps) {
                 }`}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* Drag Handle Icon */}
+                  {/* Drag Handle Icon - แสดงตลอดเวลาบนมือถือเพื่อให้กดลากง่ายขึ้น */}
                   {!todo.is_completed && (
-                    <div className="text-slate-300 dark:text-slate-700 cursor-grab active:cursor-grabbing shrink-0 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="text-slate-300 dark:text-slate-700 cursor-grab active:cursor-grabbing shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                       <GripVertical className="h-4 w-4" />
                     </div>
                   )}
@@ -358,7 +388,7 @@ export default function TasksTab({ userId }: TasksTabProps) {
                 {/* Trash Delete Action */}
                 <button
                   onClick={() => handleDeleteTodo(todo.id)}
-                  className="ml-2 shrink-0 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all lg:opacity-0 group-hover:opacity-100 cursor-pointer"
+                  className="ml-2 shrink-0 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all opacity-100 lg:opacity-0 group-hover:opacity-100 cursor-pointer"
                   title="ลบงาน"
                 >
                   <Trash2 className="h-4 w-4" />

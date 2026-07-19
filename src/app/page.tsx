@@ -530,7 +530,7 @@ export default function Home() {
           Bottom Tab Navigation (mobile + tablet only)
          ══════════════════════════════════════════════════════════ */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 dark:border-slate-900/80 bg-white/95 dark:bg-slate-950/90 backdrop-blur-xl transition-colors lg:hidden">
-        <div className="content-container grid grid-cols-4 h-16 !px-1">
+        <div className="content-container grid grid-cols-4 h-30 px-1!">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
