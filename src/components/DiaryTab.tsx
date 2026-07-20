@@ -141,7 +141,7 @@ export default function DiaryTab({ userId }: DiaryTabProps) {
         if (error) throw error
       }
 
-      showSuccess('บันทึกสำเร็จ', 'เก็บความทรงจำของคุณเรียบร้อยแล้ว 📑')
+      showSuccess('บันทึกสำเร็จ', 'เก็บความทรงจำของคุณเรียบร้อยแล้ว')
       await fetchEntries()
       closeForm()
     } catch (err: unknown) {
