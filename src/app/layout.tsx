@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "ใช้เอง",
+    title: "LogLife",
   },
 };
 
