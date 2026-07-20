@@ -41,7 +41,6 @@ export default function LoginScreen() {
       <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-violet-600/10 dark:bg-violet-600/20 blur-3xl" />
       <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-indigo-600/10 dark:bg-indigo-600/20 blur-3xl" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-100 w-[400px] rounded-full bg-pink-500/[0.02] dark:bg-pink-500/5 blur-[120px]" />
-
       <div className="w-full max-w-sm lg:max-w-md rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/5 p-8 lg:p-12 text-center backdrop-blur-xl shadow-xl dark:shadow-2xl transition-all duration-300 hover:border-slate-300 dark:hover:border-white/20">
         <div className="mb-8">
           <Image src={isDarkMode ? "/lightlogo.svg" : "/darklogo.svg"} alt="Logo" className="w-40 mx-auto" width={50} height={50} />
@@ -49,7 +48,6 @@ export default function LoginScreen() {
             ระบบเว็บแอปพลิเคชันสำหรับการติดตาม Log ในชีวิตประจำวัน
           </p>
         </div>
-
         <div className="space-y-4">
           <button
             onClick={handleGoogleLogin}
@@ -70,19 +68,16 @@ export default function LoginScreen() {
             )}
             <span className="text-base font-medium">เข้าสู่ระบบด้วย Google</span>
           </button>
-
           {errorMsg && (
             <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
               {errorMsg}
             </div>
           )}
         </div>
-
         {/* Footer */}
         <div className="mt-8 text-xs text-slate-400 dark:text-slate-500">
           <p>© 2026 Suthinanll. All rights reserved.</p>
         </div>
-
       </div>
     </div>
   )
