@@ -214,7 +214,7 @@ export default function Home() {
         {/* Sidebar Logo */}
         <div className="flex items-center gap-2.5 px-6 h-16 border-b border-slate-200/60 dark:border-slate-800/60">
           <img
-            src={isDarkMode ? "/darklogo.png" : "/lightlogo.png"}
+            src={isDarkMode ? "/darklogo.svg" : "/lightlogo.svg"}
             alt="Logo"
             className="block h-11 w-auto object-contain"
           />
@@ -341,7 +341,7 @@ export default function Home() {
             {/* Logo */}
             <div className="flex items-center gap-2.5 px-1 h-16 border-b border-slate-200/60 dark:border-slate-800/60">
               <img
-                src={isDarkMode ? "/darklogo.png" : "/lightlogo.png"}
+                src={isDarkMode ? "/darklogo.svg" : "/lightlogo.svg"}
                 alt="Logo"
                 className="block h-10 w-auto object-contain"
               />
