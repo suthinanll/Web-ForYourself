@@ -530,7 +530,7 @@ export default function Home() {
          ══════════════════════════════════════════════════════════ */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 dark:border-slate-900/80 bg-white/95 dark:bg-slate-950/90 backdrop-blur-xl transition-colors lg:hidden">
         {/* 💡 ปรับ h-25 และเพิ่ม items-center เพื่อให้คอนเทนต์จัดแนวตั้งตรงกลางพอดี */}
-        <div className="content-container grid grid-cols-4 h-25 px-1 items-center">
+        <div className="content-container grid grid-cols-4 h-18 px-1 items-center">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -555,7 +555,7 @@ export default function Home() {
                   {tab.icon}
                 </div>
                 <span
-                  className={`text-[11px] tracking-wide font-medium transition-all ${isActive ? "font-bold" : ""
+                  className={`text-[10px] tracking-wide font-medium transition-all ${isActive ? "font-bold" : ""
                     }`}
                 >
                   {tab.label}
