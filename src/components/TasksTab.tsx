@@ -13,7 +13,9 @@ import {
   EyeOff, 
   Target,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Edit3,
+  X
 } from 'lucide-react'
 import {
   showSuccess,
@@ -40,6 +42,11 @@ export default function TasksTab({ userId }: TasksTabProps) {
   const [loading, setLoading] = useState(true)
   const [quickInput, setQuickInput] = useState('')
   const [hideCompleted, setHideCompleted] = useState(false)
+
+  // Edit State
+  const [editingTodo, setEditingTodo] = useState<TodoItem | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Drag & Touch state
   const dragItem = useRef<string | null>(null)
@@ -140,6 +147,48 @@ export default function TasksTab({ userId }: TasksTabProps) {
     }
   }
 
+  // ── ฟังก์ชันเปิด Modal แก้ไข ──
+  const openEditModal = (todo: TodoItem) => {
+    setEditingTodo(todo)
+    setEditTitle(todo.title)
+  }
+
+  const closeEditModal = () => {
+    setEditingTodo(null)
+    setEditTitle('')
+  }
+
+  // ── บันทึกการแก้ไขชื่อรายการงาน ──
+  const handleUpdateTitle = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTodo || !editTitle.trim()) return
+
+    const updatedTitle = editTitle.trim()
+    setSavingEdit(true)
+
+    // Optimistic UI Update
+    setTodos(prev =>
+      prev.map(t => (t.id === editingTodo.id ? { ...t, title: updatedTitle } : t))
+    )
+
+    try {
+      const { error } = await supabase
+        .from('todo_list')
+        .update({ title: updatedTitle })
+        .eq('id', editingTodo.id)
+
+      if (error) throw error
+      showSuccess('แก้ไขสำเร็จ', 'อัปเดตชื่อรายการเรียบร้อยแล้ว')
+      closeEditModal()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      fetchTodos()
+      showError('เกิดข้อผิดพลาด', 'แก้ไขไม่สำเร็จ: ' + message)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   const handleDeleteTodo = async (id: string) => {
     const result = await showDeleteConfirm(
       'ลบรายการงาน?',
@@ -175,7 +224,6 @@ export default function TasksTab({ userId }: TasksTabProps) {
     setDragOverId(id)
   }
 
-  // ฟังก์ชันจัดบันทึกเรียงลำดับลง Database ตัวกลาง
   const saveNewOrder = async (updatedList: TodoItem[]) => {
     try {
       await Promise.all(
@@ -224,7 +272,6 @@ export default function TasksTab({ userId }: TasksTabProps) {
     await saveNewOrder(updated)
   }
 
-  // ── ฟังก์ชันกดปุ่มสลับตำแหน่งแบบ Click/Tap (ช่วยให้ใช้งานง่ายบนมือถือเพิ่มขึ้น) ──
   const moveTaskStep = async (id: string, direction: 'up' | 'down') => {
     const index = todos.findIndex(t => t.id === id)
     if (index === -1) return
@@ -234,7 +281,6 @@ export default function TasksTab({ userId }: TasksTabProps) {
     const targetIndex = direction === 'up' ? index - 1 : index + 1
     const newList = [...todos]
     
-    // สลับตำแหน่งใน Array
     const temp = newList[index]
     newList[index] = newList[targetIndex]
     newList[targetIndex] = temp
@@ -244,7 +290,6 @@ export default function TasksTab({ userId }: TasksTabProps) {
     await saveNewOrder(updated)
   }
 
-  // ── Touch Events แบบ Advanced สำหรับตรวจจับพิกัดจอสัมผัสมือถือ ──
   const handleTouchStart = (id: string, isCompleted: boolean) => {
     if (isCompleted) return
     dragItem.current = id
@@ -255,11 +300,9 @@ export default function TasksTab({ userId }: TasksTabProps) {
     if (!draggingId) return
 
     const touch = e.touches[0]
-    // ค้นหา Element ตรงๆ จากจุดที่นิ้วกำลังลากผ่านบนหน้าจอ
     const element = document.elementFromPoint(touch.clientX, touch.clientY)
     if (!element) return
 
-    // หา HTML Node ที่ใกล้ที่สุดที่มี Attributes ระบุ Todo ID ไว้
     const closestItem = element.closest('[data-todo-id]')
 
     if (closestItem) {
@@ -383,27 +426,24 @@ export default function TasksTab({ userId }: TasksTabProps) {
                   {/* ปุ่มลูกศร + จุดไข่ปลา สำหรับสั่งงานสลับตำแหน่งบน Mobile / Desktop */}
                   {!todo.is_completed && (
                     <div className="flex items-center gap-1 text-slate-400 dark:text-slate-600 shrink-0">
-                      {/* ไอคอนสำหรับใช้เมาส์ลากบน Desktop */}
                       <div className="hidden lg:block cursor-grab active:cursor-grabbing p-0.5 hover:text-slate-600 dark:hover:text-slate-300">
                         <GripVertical className="h-4 w-4" />
                       </div>
                       
-                      {/* ปุ่มขยับขึ้น (ซ่อนบนคอม แสดงบนจอสัมผัส) */}
                       <button
                         type="button"
                         onClick={() => moveTaskStep(todo.id, 'up')}
                         disabled={idx === 0}
-                        className="lg:hidden p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-20 text-slate-500"
+                        className="lg:hidden p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-20 text-slate-500 cursor-pointer"
                       >
                         <ArrowUp className="h-3.5 w-3.5" />
                       </button>
 
-                      {/* ปุ่มขยับลง (ซ่อนบนคอม แสดงบนจอสัมผัส) */}
                       <button
                         type="button"
                         onClick={() => moveTaskStep(todo.id, 'down')}
                         disabled={idx === displayTodos.length - 1}
-                        className="lg:hidden p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-20 text-slate-500"
+                        className="lg:hidden p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-20 text-slate-500 cursor-pointer"
                       >
                         <ArrowDown className="h-3.5 w-3.5" />
                       </button>
@@ -439,19 +479,83 @@ export default function TasksTab({ userId }: TasksTabProps) {
                   </span>
                 </div>
 
-                {/* Trash Delete Action */}
-                <button
-                  onClick={() => handleDeleteTodo(todo.id)}
-                  className="ml-2 shrink-0 rounded-lg p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all opacity-100 lg:opacity-0 group-hover:opacity-100 cursor-pointer"
-                  title="ลบงาน"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {/* Actions: Edit & Delete Buttons */}
+                <div className="flex items-center gap-1 ml-2 shrink-0">
+                  <button
+                    onClick={() => openEditModal(todo)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all opacity-100 lg:opacity-0 group-hover:opacity-100 cursor-pointer"
+                    title="แก้ไขงาน"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTodo(todo.id)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all opacity-100 lg:opacity-0 group-hover:opacity-100 cursor-pointer"
+                    title="ลบงาน"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Modal แก้ไขชื่อรายการงาน ── */}
+      {editingTodo && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop" onClick={closeEditModal} />
+          <form
+            onSubmit={handleUpdateTitle}
+            className="relative w-full max-w-md rounded-t-3xl md:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl transition-all"
+          >
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-slate-200 dark:bg-slate-800 md:hidden" />
+
+            <div className="flex items-center justify-between mb-4 mt-1">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                แก้ไขรายการงาน
+              </h3>
+              <button 
+                type="button" 
+                onClick={closeEditModal}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <input
+                type="text"
+                required
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                placeholder="ชื่อรายการงาน..."
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-yellow-400 font-medium"
+                autoFocus
+              />
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit || !editTitle.trim()}
+                  className="flex-1 rounded-xl bg-slate-900 dark:bg-white py-2.5 text-xs font-bold text-white dark:text-slate-900 shadow-md transition-all hover:bg-slate-700 dark:hover:bg-slate-200 active:scale-95 disabled:opacity-40 cursor-pointer"
+                >
+                  {savingEdit ? 'กำลังบันทึก...' : 'บันทึกแก้ไข'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* ── Floating Quick Input Bar ── */}
       <div className="fixed bottom-[72px] lg:bottom-6 left-0 lg:left-[240px] right-0 z-30 px-4 py-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-900 transition-all duration-300">

@@ -11,7 +11,8 @@ import {
   RefreshCw, 
   Trash2, 
   X,
-  Calendar
+  Calendar,
+  Edit3
 } from 'lucide-react'
 import {
   showSuccess,
@@ -37,6 +38,9 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [issubmitting, setIsSubmitting] = useState(false)
+
+  // Edit State (null = สร้างใหม่, Object = กำลังแก้ไข)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
 
   // Form states
   const [title, setTitle] = useState('')
@@ -77,14 +81,49 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
     }
   }
 
-  // Format Helper
+  // Format Helper สำหรับแปลง ISO String เป็น YYYY-MM-DDTHH:mm ใส่ลง input datetime-local
+  const formatISOToLocalDatetime = (isoString: string) => {
+    const d = new Date(isoString)
+    const tzOffset = d.getTimezoneOffset() * 60000
+    const localISOTime = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
+    return localISOTime
+  }
+
+  // Format Helper แสดงเวลาในรายการ
   const formatTime = (isoString: string) => {
     const d = new Date(isoString)
     return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Handle Event submission
-  const handleCreateEvent = async (e: React.FormEvent) => {
+  // ── เปิด Modal สำหรับสร้างใหม่ ──
+  const handleOpenCreateModal = () => {
+    setEditingEvent(null)
+    setTitle('')
+    setStartTime('')
+    setEndTime('')
+    setIsModalOpen(true)
+  }
+
+  // ── เปิด Modal สำหรับแก้ไข ──
+  const handleOpenEditModal = (evt: CalendarEvent) => {
+    setEditingEvent(evt)
+    setTitle(evt.title)
+    setStartTime(formatISOToLocalDatetime(evt.start_time))
+    setEndTime(formatISOToLocalDatetime(evt.end_time))
+    setIsModalOpen(true)
+  }
+
+  // ── ปิด Modal ──
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setEditingEvent(null)
+    setTitle('')
+    setStartTime('')
+    setEndTime('')
+  }
+
+  // Handle Event submission (ทั้งสร้างใหม่และแก้ไข)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !startTime || !endTime) return
 
@@ -96,27 +135,39 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
 
     setIsSubmitting(true)
     try {
-      const { error } = await supabase
-        .from('calendar_events')
-        .insert({
-          user_id: userId,
-          title: title.trim(),
-          start_time: new Date(startTime).toISOString(),
-          end_time: new Date(endTime).toISOString()
-        })
+      if (editingEvent) {
+        // ── กรณีแก้ไข (UPDATE) ──
+        const { error } = await supabase
+          .from('calendar_events')
+          .update({
+            title: title.trim(),
+            start_time: new Date(startTime).toISOString(),
+            end_time: new Date(endTime).toISOString()
+          })
+          .eq('id', editingEvent.id)
 
-      if (error) throw error
-      
-      setTitle('')
-      setStartTime('')
-      setEndTime('')
-      setIsModalOpen(false)
+        if (error) throw error
+        showSuccess('แก้ไขสำเร็จ', 'อัปเดตข้อมูลนัดหมายเรียบร้อยแล้ว')
+      } else {
+        // ── กรณีสร้างใหม่ (INSERT) ──
+        const { error } = await supabase
+          .from('calendar_events')
+          .insert({
+            user_id: userId,
+            title: title.trim(),
+            start_time: new Date(startTime).toISOString(),
+            end_time: new Date(endTime).toISOString()
+          })
+
+        if (error) throw error
+        showSuccess('บันทึกสำเร็จ', 'เพิ่มกิจกรรมลงในกำหนดการเรียบร้อย')
+      }
+
+      handleCloseModal()
       fetchEvents()
-
-      showSuccess('บันทึกสำเร็จ', 'เพิ่มกิจกรรมลงในกำหนดการเรียบร้อย')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      showError('เกิดข้อผิดพลาด', 'บันทึกปฏิทินล้มเหลว: ' + message)
+      showError('เกิดข้อผิดพลาด', 'ทำรายการไม่สำเร็จ: ' + message)
     } finally {
       setIsSubmitting(false)
     }
@@ -206,7 +257,7 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
           </div>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenCreateModal}
           className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 dark:bg-white px-3.5 py-2.5 text-xs font-medium text-white dark:text-slate-900 shadow-sm transition-all hover:bg-slate-700 dark:hover:bg-slate-200 active:scale-95 cursor-pointer"
         >
           <Plus className="h-4 w-4" />
@@ -312,13 +363,24 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteEvent(evt.id)}
-                    className="text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-1.5 rounded-lg cursor-pointer"
-                    title="ลบนัดหมาย"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {/* ปุ่มแก้ไข */}
+                    <button
+                      onClick={() => handleOpenEditModal(evt)}
+                      className="text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-1.5 rounded-lg cursor-pointer"
+                      title="แก้ไขนัดหมาย"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    {/* ปุ่มลบ */}
+                    <button
+                      onClick={() => handleDeleteEvent(evt.id)}
+                      className="text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-1.5 rounded-lg cursor-pointer"
+                      title="ลบนัดหมาย"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -326,16 +388,18 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
         </div>
       </div>
 
-      {/* ── Add Event Modal ── */}
+      {/* ── Modal สำหรับ สร้าง/แก้ไข นัดหมาย ── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 dark:bg-slate-950/80 p-4">
           <div className="relative w-full max-w-sm lg:max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
             
             {/* Modal Form Header */}
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
-              <h3 className="font-medium text-slate-900 dark:text-white text-base">สร้างนัดหมายใหม่</h3>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                {editingEvent ? 'แก้ไขนัดหมาย' : 'สร้างนัดหมายใหม่'}
+              </h3>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={handleCloseModal}
                 className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
@@ -343,7 +407,7 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
             </div>
 
             {/* Form Fields */}
-            <form onSubmit={handleCreateEvent} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">หัวข้อนัดหมาย</label>
                 <input
@@ -354,6 +418,7 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:bg-white dark:focus:bg-slate-900 placeholder:text-slate-400 dark:placeholder:text-slate-600 font-medium disabled:opacity-60"
+                  autoFocus
                 />
               </div>
 
@@ -375,7 +440,7 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
                   type="datetime-local"
                   required
                   disabled={issubmitting || !startTime}
-                  min={startTime} // ใช้ html attribute บล็อกไม่ให้กดเลือกเวลาที่ก่อนเวลาเริ่มต้น
+                  min={startTime} // บล็อกไม่ให้เลือกเวลาที่ก่อนเวลาเริ่มต้น
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:bg-white dark:focus:bg-slate-900 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -386,10 +451,12 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
                 <button
                   type="submit"
                   disabled={issubmitting}
-                  className="flex-1 rounded-xl bg-slate-900 dark:bg-white py-2.5 text-xs font-medium text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 active:scale-95 transition-all cursor-pointer flex items-center justify-center disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-slate-900 dark:bg-white py-2.5 text-xs font-bold text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 active:scale-95 transition-all cursor-pointer flex items-center justify-center disabled:opacity-60"
                 >
                   {issubmitting ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : editingEvent ? (
+                    'บันทึกการแก้ไข'
                   ) : (
                     'สร้างนัดหมาย'
                   )}
@@ -397,8 +464,8 @@ export default function ScheduleTab({ userId }: ScheduleTabProps) {
                 <button
                   type="button"
                   disabled={issubmitting}
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-60"
+                  onClick={handleCloseModal}
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-60"
                 >
                   ยกเลิก
                 </button>
